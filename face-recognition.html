@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>نظام التعرف على الوجه</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#eef1f6;--surf:#fff;--ink:#17233b;--mute:#66728c;--line:#dde3ee;--brand:#4338ca;--brand-soft:#e8e7fb;--ok:#059669;--warn:#d97706;--bad:#dc2626;--r:14px}
+*{box-sizing:border-box;margin:0}
+body{font-family:Tajawal,system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;display:grid;grid-template-columns:230px 1fr;font-size:15px}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+aside{background:var(--ink);color:#e6eaf4;padding:24px 16px;display:flex;flex-direction:column;gap:28px;position:sticky;top:0;height:100vh}
+.brand{display:flex;gap:10px;align-items:center;font-weight:800;font-size:18px}
+.logo{width:38px;height:38px;border-radius:11px;background:var(--brand);display:grid;place-items:center}
+nav{display:flex;flex-direction:column;gap:4px}
+nav button{background:none;border:0;text-align:right;padding:11px 12px;border-radius:10px;cursor:pointer;color:#aab4cc;display:flex;gap:10px;align-items:center}
+nav button:hover{background:#ffffff14}
+nav button[aria-current=true]{background:var(--brand);color:#fff;font-weight:700}
+.side-note{margin-top:auto;font-size:12.5px;line-height:1.7;color:#8e9ab6;border-top:1px solid #ffffff22;padding-top:14px}
+main{padding:26px 30px;display:flex;flex-direction:column;gap:20px;min-width:0}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-size:26px;font-weight:800}
+.pill{padding:6px 14px;border-radius:99px;background:var(--surf);border:1px solid var(--line);font-size:13.5px;display:flex;gap:8px;align-items:center}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--warn)}
+.dot.on{background:var(--ok)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.stat{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:14px 18px}
+.stat b{font-size:28px;font-weight:800;display:block}
+.stat span{color:var(--mute);font-size:13.5px}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);gap:20px;align-items:start}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.card h2{font-size:17px;margin-bottom:12px}
+.stage{position:relative;aspect-ratio:4/3;background:#0d1424;border-radius:12px;overflow:hidden}
+.stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.stage .corner{position:absolute;width:34px;height:34px;border:3px solid #fff;opacity:.85;pointer-events:none}
+.c1{top:14px;right:14px;border-left:0;border-bottom:0}.c2{top:14px;left:14px;border-right:0;border-bottom:0}
+.c3{bottom:14px;right:14px;border-left:0;border-top:0}.c4{bottom:14px;left:14px;border-right:0;border-top:0}
+.idle{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#c3cbe0;padding:20px;line-height:1.8}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center}
+.btn{background:var(--brand);color:#fff;border:0;padding:10px 18px;border-radius:10px;cursor:pointer;font-weight:700}
+.btn:hover{filter:brightness(1.1)}.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.ghost{background:var(--brand-soft);color:var(--brand)}
+.btn.danger{background:#fde8e8;color:var(--bad)}
+label{display:block;font-size:13.5px;color:var(--mute);margin:12px 0 5px}
+input[type=text]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fafbfd}
+input[type=range]{width:160px;accent-color:var(--brand)}
+.list{display:flex;flex-direction:column;gap:8px;max-height:420px;overflow:auto}
+.item{display:flex;gap:12px;align-items:center;padding:9px;border:1px solid var(--line);border-radius:11px}
+.item img,.av{width:44px;height:44px;border-radius:50%;object-fit:cover;background:var(--brand-soft);display:grid;place-items:center;font-weight:800;color:var(--brand);flex:none}
+.item .t{flex:1;min-width:0}.item .t b{display:block}.item .t small{color:var(--mute)}
+.empty{color:var(--mute);text-align:center;padding:26px 8px;line-height:1.8}
+.tag{font-size:12.5px;padding:3px 9px;border-radius:99px;background:#d9f5ea;color:var(--ok);font-weight:700}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 20px;border-radius:12px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:9}
+#toast.show{opacity:1}
+@media(max-width:900px){body{grid-template-columns:1fr}aside{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;padding:14px}.side-note{display:none}nav{flex-direction:row;flex-wrap:wrap}.grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr 1fr}main{padding:18px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand"><div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M9 10v1M15 10v1M9 15c1.5 1.2 4.5 1.2 6 0"/></svg></div>تعرّف</div>
+  <nav id="nav">
+    <button data-tab="live" aria-current="true">التعرف المباشر</button>
+    <button data-tab="add">تسجيل شخص</button>
+    <button data-tab="people">الأشخاص المسجلون</button>
+    <button data-tab="log">سجل التعرف</button>
+  </nav>
+  <p class="side-note">تُعالَج الوجوه داخل المتصفح فقط، وتُحفظ بصمات رقمية على هذا الجهاز دون أي رفع للصور.</p>
+</aside>
+
+<main>
+  <header>
+    <h1 id="title">التعرف المباشر</h1>
+    <div class="row" style="margin:0">
+      <div class="pill"><span class="dot" id="dbdot"></span><span id="db">جارٍ الاتصال بقاعدة البيانات…</span></div>
+      <div class="pill"><span class="dot" id="dot"></span><span id="status">جارٍ تحميل النماذج…</span></div>
+      <button class="btn" id="xlsx">تصدير Excel</button>
+    </div>
+  </header>
+
+  <section class="stats">
+    <div class="stat"><b id="s1">0</b><span>أشخاص مسجلون</span></div>
+    <div class="stat"><b id="s2">0</b><span>وجوه في الكاميرا الآن</span></div>
+    <div class="stat"><b id="s3">0</b><span>عمليات تعرف اليوم</span></div>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <h2>الكاميرا</h2>
+      <div class="stage">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="overlay"></canvas>
+        <i class="corner c1"></i><i class="corner c2"></i><i class="corner c3"></i><i class="corner c4"></i>
+        <div class="idle" id="idle">اضغط «تشغيل الكاميرا» ثم اسمح للمتصفح باستخدامها.</div>
+      </div>
+      <div class="row">
+        <button class="btn" id="camBtn" disabled>تشغيل الكاميرا</button>
+        <span style="color:var(--mute);font-size:13.5px">حساسية المطابقة</span>
+        <input type="range" id="thr" min="0.35" max="0.65" step="0.01" value="0.5" aria-label="حساسية المطابقة">
+      </div>
+    </section>
+
+    <section class="card" id="panel"></section>
+  </div>
+</main>
+<div id="toast" role="status"></div>
+
+<script>
+const MODELS = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/';
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d){ try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+};
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let people = store.get('fr_people', []);
+let logs = store.get('fr_logs', []);
+let tab = 'live', ready = false, faces = [], lastSeen = {}, threshold = 0.5;
+const video = $('#video'), canvas = $('#overlay');
+const titles = {live:'التعرف المباشر', add:'تسجيل شخص', people:'الأشخاص المسجلون', log:'سجل التعرف'};
+
+function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toast.id); toast.id=setTimeout(()=>t.classList.remove('show'),2600); }
+let mode = 'local';
+async function api(method, path, body){
+  const r = await fetch('/api' + path, {method, headers:{'Content-Type':'application/json'}, body: body ? JSON.stringify(body) : undefined});
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+function save(){ if (mode === 'local'){ store.set('fr_people', people); store.set('fr_logs', logs); } }
+async function sync(method, path, body){
+  if (mode !== 'server') return;
+  try { await api(method, path, body); } catch(e){ toast('تعذر الحفظ في قاعدة البيانات'); }
+}
+async function loadData(){
+  try {
+    const sp = await api('GET', '/people');
+    if (!sp.length && people.length){ for (const p of people) await api('POST', '/people', p); } else people = sp;
+    logs = await api('GET', '/logs'); mode = 'server';
+  } catch(e){ mode = 'local'; }
+  $('#db').textContent = mode === 'server' ? 'متصل بقاعدة البيانات' : 'وضع محلي (بدون خادم)';
+  $('#dbdot').classList.toggle('on', mode === 'server');
+  stats(); render();
+}
+function exportXlsx(){
+  if (!window.XLSX) return toast('تعذر تحميل مكتبة Excel، تحقق من الاتصال');
+  if (!people.length && !logs.length) return toast('لا توجد بيانات للتصدير');
+  const ps = people.map(p => ({'الاسم':p.name, 'الصفة':p.role || '', 'تاريخ التسجيل':p.created_at ? new Date(p.created_at).toLocaleString('ar') : ''}));
+  const ls = logs.map(l => ({'الاسم':l.name, 'الصفة':l.role || '', 'التاريخ':new Date(l.ts).toLocaleDateString('ar'), 'الوقت':fmt(l.ts), 'نسبة التطابق %':l.conf}));
+  const a = XLSX.utils.json_to_sheet(ps), b = XLSX.utils.json_to_sheet(ls);
+  a['!cols'] = [{wch:24},{wch:16},{wch:24}]; b['!cols'] = [{wch:24},{wch:16},{wch:14},{wch:10},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, a, 'الأشخاص'); XLSX.utils.book_append_sheet(wb, b, 'سجل التعرف');
+  wb.Workbook = {Views:[{RTL:true}]};
+  XLSX.writeFile(wb, 'face-recognition-' + new Date().toISOString().slice(0, 10) + '.xlsx');
+  toast('تم تصدير الملف');
+}
+const fmt = ts => new Date(ts).toLocaleTimeString('ar', {hour:'2-digit', minute:'2-digit'});
+
+/* ---------- النماذج والكاميرا ---------- */
+async function loadModels(){
+  try {
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(MODELS),
+      faceapi.nets.faceLandmark68Net.loadFromUri(MODELS),
+      faceapi.nets.faceRecognitionNet.loadFromUri(MODELS)
+    ]);
+    ready = true; $('#dot').classList.add('on'); $('#status').textContent = 'النظام جاهز'; $('#camBtn').disabled = false;
+  } catch(e){
+    $('#status').textContent = 'تعذر تحميل النماذج، تحقق من الاتصال';
+  }
+}
+async function toggleCam(){
+  const btn = $('#camBtn');
+  if (video.srcObject){
+    video.srcObject.getTracks().forEach(t => t.stop()); video.srcObject = null;
+    $('#idle').style.display = 'grid'; btn.textContent = 'تشغيل الكاميرا'; faces = []; draw(); return;
+  }
+  try {
+    video.srcObject = await navigator.mediaDevices.getUserMedia({video:{width:640, height:480, facingMode:'user'}});
+    $('#idle').style.display = 'none'; btn.textContent = 'إيقاف الكاميرا';
+  } catch(e){ toast('تعذر فتح الكاميرا. استخدم https وامنح الإذن.'); }
+}
+
+/* ---------- المطابقة والرسم ---------- */
+function match(desc){
+  let best = null, bd = 9;
+  for (const p of people){
+    const d = faceapi.euclideanDistance(desc, new Float32Array(p.desc));
+    if (d < bd){ bd = d; best = p; }
+  }
+  return bd < threshold ? {p:best, d:bd} : {p:null, d:bd};
+}
+function draw(){
+  const w = video.videoWidth || 640, h = video.videoHeight || 480;
+  if (canvas.width !== w) { canvas.width = w; canvas.height = h; }
+  const g = canvas.getContext('2d'); g.clearRect(0,0,w,h);
+  faces.forEach(f => {
+    const b = f.detection.box, m = f.m;
+    const col = m.p ? '#34d399' : '#fbbf24';
+    g.lineWidth = 3; g.strokeStyle = col; g.strokeRect(b.x, b.y, b.width, b.height);
+    const label = m.p ? `${m.p.name}  ${Math.round((1-m.d)*100)}%` : 'غير معروف';
+    g.font = '700 17px Tajawal, sans-serif';
+    const tw = g.measureText(label).width + 18;
+    g.fillStyle = col; g.fillRect(b.x, b.y - 30, tw, 28);
+    g.fillStyle = '#10201a'; g.textBaseline = 'middle'; g.fillText(label, b.x + 9, b.y - 15);
+  });
+}
+async function loop(){
+  if (ready && video.srcObject && video.readyState >= 2){
+    try {
+      const res = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({inputSize:320, scoreThreshold:.5})).withFaceLandmarks().withFaceDescriptors();
+      faces = res.map(r => (r.m = match(r.descriptor), r));
+      draw();
+      const now = Date.now();
+      faces.forEach(f => {
+        if (f.m.p && now - (lastSeen[f.m.p.id] || 0) > 30000){
+          lastSeen[f.m.p.id] = now;
+          const entry = {name:f.m.p.name, role:f.m.p.role, ts:now, conf:Math.round((1-f.m.d)*100), person_id:f.m.p.id};
+          logs.unshift(entry); sync('POST', '/logs', entry);
+          logs = logs.slice(0, mode === 'server' ? 1000 : 200); save(); stats(); if (tab === 'log' || tab === 'live') render();
+        }
+      });
+      $('#s2').textContent = faces.length;
+    } catch(e){}
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ---------- التسجيل ---------- */
+function thumb(src, box){
+  const c = document.createElement('canvas'); c.width = c.height = 96;
+  const pad = box.width * .25, s = box.width + pad * 2;
+  c.getContext('2d').drawImage(src, box.x - pad, box.y - pad, s, s, 0, 0, 96, 96);
+  return c.toDataURL('image/jpeg', .7);
+}
+function addPerson(name, role, desc, photo){
+  const p = {id: Date.now().toString(36), name, role, desc:Array.from(desc), photo, created_at: Date.now()};
+  people.push(p); sync('POST', '/people', p);
+  save(); stats(); toast(`تم تسجيل ${name}`);
+}
+function checkName(){
+  const name = $('#fname').value.trim();
+  if (!name){ toast('اكتب اسم الشخص أولًا'); $('#fname').focus(); return null; }
+  return {name, role: $('#frole').value.trim()};
+}
+function capture(){
+  const f = checkName(); if (!f) return;
+  if (!faces.length) return toast('لا يوجد وجه ظاهر في الكاميرا');
+  const big = faces.reduce((a,b) => a.detection.box.area > b.detection.box.area ? a : b);
+  addPerson(f.name, f.role, big.descriptor, thumb(video, big.detection.box));
+  $('#fname').value = $('#frole').value = '';
+}
+async function fromFile(e){
+  const f = checkName(); const file = e.target.files[0]; e.target.value = '';
+  if (!f || !file) return;
+  if (!ready) return toast('انتظر حتى يجهز النظام');
+  const img = await faceapi.bufferToImage(file);
+  const r = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({inputSize:416})).withFaceLandmarks().withFaceDescriptor();
+  if (!r) return toast('لم يُعثر على وجه واضح في الصورة');
+  addPerson(f.name, f.role, r.descriptor, thumb(img, r.detection.box));
+}
+
+/* ---------- اللوحة الجانبية ---------- */
+function render(){
+  const p = $('#panel');
+  if (tab === 'add'){
+    p.innerHTML = `<h2>تسجيل شخص جديد</h2>
+      <label for="fname">الاسم</label><input type="text" id="fname" placeholder="مثال: سارة المنصوري">
+      <label for="frole">الصفة (اختياري)</label><input type="text" id="frole" placeholder="مثال: موظفة، طالب، زائر">
+      <div class="row"><button class="btn" id="capBtn">التقاط من الكاميرا</button>
+      <label class="btn ghost" style="margin:0;color:var(--brand)">رفع صورة<input type="file" id="file" accept="image/*" hidden></label></div>
+      <p style="color:var(--mute);font-size:13px;margin-top:14px;line-height:1.8">انظر إلى الكاميرا مباشرة وبإضاءة جيدة. سجّل الشخص بموافقته فقط.</p>`;
+    $('#capBtn').onclick = capture; $('#file').onchange = fromFile;
+  } else if (tab === 'people'){
+    p.innerHTML = `<h2>الأشخاص المسجلون</h2>` + (people.length ? `<div class="list">${people.map(x => `
+      <div class="item">${x.photo ? `<img src="${x.photo}" alt="">` : `<div class="av">${esc(x.name[0])}</div>`}
+      <div class="t"><b>${esc(x.name)}</b><small>${esc(x.role || 'بدون صفة')}</small></div>
+      <button class="btn danger" data-del="${x.id}">حذف</button></div>`).join('')}</div>
+      <div class="row"><button class="btn danger" id="wipe">حذف الجميع</button></div>`
+      : `<div class="empty">لا يوجد أحد بعد. افتح «تسجيل شخص» لإضافة أول وجه.</div>`);
+    p.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { const id = b.dataset.del; people = people.filter(x => x.id !== id); sync('DELETE', '/people/' + encodeURIComponent(id)); save(); stats(); render(); });
+    const w = $('#wipe'); if (w) w.onclick = () => { if (confirm('حذف جميع الأشخاص المسجلين؟')){ people = []; sync('DELETE', '/people'); save(); stats(); render(); } };
+  } else {
+    const list = tab === 'live' ? logs.slice(0, 6) : logs;
+    p.innerHTML = `<h2>${tab === 'live' ? 'آخر من تم التعرف عليهم' : 'سجل التعرف'}</h2>` + (list.length ? `<div class="list">${list.map(l => `
+      <div class="item"><div class="av">${esc(l.name[0])}</div>
+      <div class="t"><b>${esc(l.name)}</b><small>${esc(l.role || '')} ${fmt(l.ts)}</small></div><span class="tag">${l.conf}%</span></div>`).join('')}</div>
+      ${tab === 'log' ? `<div class="row"><button class="btn danger" id="clr">مسح السجل</button></div>` : ''}`
+      : `<div class="empty">لم يتم التعرف على أحد بعد. شغّل الكاميرا وسجّل بعض الأشخاص.</div>`);
+    const c = $('#clr'); if (c) c.onclick = () => { logs = []; sync('DELETE', '/logs'); save(); stats(); render(); };
+  }
+}
+function stats(){
+  $('#s1').textContent = people.length;
+  const day = new Date().setHours(0,0,0,0);
+  $('#s3').textContent = logs.filter(l => l.ts >= day).length;
+}
+
+/* ---------- تشغيل ---------- */
+$('#nav').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  tab = b.dataset.tab; $('#title').textContent = titles[tab];
+  document.querySelectorAll('#nav button').forEach(x => x.setAttribute('aria-current', x === b));
+  render();
+});
+$('#camBtn').onclick = toggleCam;
+$('#thr').oninput = e => threshold = +e.target.value;
+$('#xlsx').onclick = exportXlsx;
+stats(); render(); loadData(); loadModels(); loop();
+</script>
+</body>
+</html>
